@@ -1,0 +1,89 @@
+#!/bin/sh
+
+LIST_OF_APPS="python3"
+
+if dpkg -l | grep -q python3; then
+    echo "Dependencies are installed"
+else
+    echo "installing dependencies"
+    sudo apt update
+    sudo apt install -y $LIST_OF_APPS
+fi
+
+current_dir=$(pwd)
+mkdir -p ~/Authenticator
+cp con.py ~/Authenticator/
+cd ~/Authenticator/
+chmod +x con.py
+touch credential.txt
+echo "Enter the username for default authentication "
+read usernm
+while :
+do
+    echo "Enter the password for default user "
+    stty -echo
+    read -r passwd1
+    stty echo
+    echo "Confirm the password for default user "
+    stty -echo
+    read -r passwd2
+    stty echo
+    if [ "$passwd1" = "$passwd2" ]; then
+        break
+    else
+        echo "incorrect passwd not match enetr again"
+    fi
+done
+
+echo $usernm > credential.txt
+echo $passwd1 >> credential.txt
+
+touch links.txt
+echo "http://172.16.12.1:1000/logout?0304060b001fa7a4" > links.txt
+
+# while read line
+# do
+#   echo $line
+# done < credential.txt
+
+
+if grep -q NITCc ~/.bashrc; then
+    echo "Alias already made as NITCc"
+else
+    echo "alias NITCc='python3 ~/Authenticator/con.py' " >> ~/.bashrc
+    echo "Alias made to NITCc"
+fi
+
+
+read -p "want to setup logout before shutdown? y/n :" string1
+string2="y"
+
+if [ "$string1" = "$string2" ]; then
+    touch shutdown.service
+    touch shutservice.log
+    cat << EOF >> shutdown.service
+[Unit]
+Description=Run my Python script before shutdown
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=~/Authenticator/con.py -s >> ~/Authenticator/shutservice.log 2>&1
+RemainAfterExit=yes
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target
+
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable shutdown.service
+
+fi
+
+cd $current_dir
+echo  
+echo "setup has succesfuly completed"
+exec bash
+
